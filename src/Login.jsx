@@ -2,20 +2,12 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, Calendar, Users } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';  // Import useNavigate
+import './Login.css'; // Make sure you add the CSS file
 
-type FormMode = 'signin' | 'signup';
-
-interface FormData {
-  email: string;
-  password: string;
-  username?: string;
-  age?: number;
-  gender?: string;
-}
-
-function App() {
-  const [mode, setMode] = useState<FormMode>('signin');
-  const [formData, setFormData] = useState<FormData>({
+function Login() {
+  const [mode, setMode] = useState('signin');
+  const [formData, setFormData] = useState({
     email: '',
     password: '',
     username: '',
@@ -23,7 +15,9 @@ function App() {
     gender: 'male'
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const navigate = useNavigate(); // Initialize useNavigate hook
+
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -31,12 +25,11 @@ function App() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       if (mode === 'signup') {
-        // First sign up the user
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password
@@ -45,7 +38,6 @@ function App() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Then store their additional details
           const { error: profileError } = await supabase
             .from('users')
             .insert({
@@ -66,7 +58,12 @@ function App() {
         });
 
         if (error) throw error;
+
         toast.success('Successfully signed in!');
+        console.log('Login successful, navigating to homepage');
+        
+        // Navigate to homepage after successful login
+        navigate('/');  // This should work, provided the route is set up correctly
       }
     } catch (error) {
       toast.error(error.message);
@@ -74,48 +71,48 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8">
-        <h2 className="text-3xl font-bold text-center mb-8">
+    <div className="app-container">
+      <div className="form-container">
+        <h2 className="form-header">
           {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
         </h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        <form onSubmit={handleSubmit} className="form">
           {mode === 'signup' && (
             <>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <div className="input-group">
+                <User className="input-icon" size={20} />
                 <input
                   type="text"
                   name="username"
                   placeholder="Username"
                   value={formData.username}
                   onChange={handleInputChange}
-                  className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+                  className="input-field"
                   required
                 />
               </div>
 
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <div className="input-group">
+                <Calendar className="input-icon" size={20} />
                 <input
                   type="number"
                   name="age"
                   placeholder="Age"
                   value={formData.age || ''}
                   onChange={handleInputChange}
-                  className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+                  className="input-field"
                   required
                 />
               </div>
 
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <div className="input-group">
+                <Users className="input-icon" size={20} />
                 <select
                   name="gender"
                   value={formData.gender}
                   onChange={handleInputChange}
-                  className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+                  className="input-field"
                   required
                 >
                   <option value="male">Male</option>
@@ -126,45 +123,42 @@ function App() {
             </>
           )}
 
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <div className="input-group">
+            <Mail className="input-icon" size={20} />
             <input
               type="email"
               name="email"
               placeholder="Email"
               value={formData.email}
               onChange={handleInputChange}
-              className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+              className="input-field"
               required
             />
           </div>
 
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <div className="input-group">
+            <Lock className="input-icon" size={20} />
             <input
               type="password"
               name="password"
               placeholder="Password"
               value={formData.password}
               onChange={handleInputChange}
-              className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+              className="input-field"
               required
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200"
-          >
+          <button type="submit" className="submit-btn">
             {mode === 'signin' ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-gray-600">
+        <p className="toggle-mode">
           {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
           <button
             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-            className="text-blue-600 font-semibold hover:underline"
+            className="toggle-btn"
           >
             {mode === 'signin' ? 'Sign Up' : 'Sign In'}
           </button>
@@ -175,4 +169,4 @@ function App() {
   );
 }
 
-export default App;
+export default Login;
