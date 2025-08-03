@@ -1,2 +1,0 @@
-// /// <reference types="vite/client" />
-// VITE_OPENAI_API_KEY="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"
