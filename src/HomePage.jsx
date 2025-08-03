@@ -1,22 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { Brain, LightbulbIcon, BarChart3, Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import './HomePage.css';
+import { useNavigate } from 'react-router-dom';
+import './HomePage.css'; // Assuming you have this CSS file for styling
 
-function HomePage() {
+function App() { // Renamed HomePage to App for consistency with React main component naming
   const [moodInput, setMoodInput] = useState('');
   const [analysis, setAnalysis] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [availableModel, setAvailableModel] = useState(null); // State to store the dynamically found model
 
   const headerRef = useRef(null);
   const ctaRef = useRef(null);
-  const featuresRef = useRef(null);
   const moodFormRef = useRef(null);
 
-  const navigate = useNavigate(); // Initialize useNavigate hook
+  const navigate = useNavigate();
 
+  // GSAP Animations for UI elements
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.from(headerRef.current, {
@@ -26,7 +27,7 @@ function HomePage() {
         ease: "power3.out"
       });
 
-      gsap.from(ctaRef.current, {
+      gsap.from(".cta-button", {
         y: 50,
         opacity: 0,
         duration: 1,
@@ -55,59 +56,182 @@ function HomePage() {
     return () => ctx.revert();
   }, []);
 
+  // Function to dynamically find an available model that supports generateContent
+  const getAvailableModel = async () => {
+    try {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Gemini API Key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.");
+      }
+
+      // Fetch the list of models from the v1 endpoint
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error listing models:", errorData);
+        throw new Error(`Failed to list models: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Available Models:", data.models);
+
+      // Prioritize gemini-pro, then gemini-2.0-flash, or any other suitable text model
+      const preferredModels = ["gemini-pro", "gemini-2.0-flash"];
+      let foundModel = null;
+
+      if (data.models && Array.isArray(data.models)) {
+        for (const modelName of preferredModels) {
+          foundModel = data.models.find(model =>
+            model.name.includes(modelName) &&
+            model.supportedGenerationMethods &&
+            model.supportedGenerationMethods.includes("generateContent")
+          );
+          if (foundModel) {
+            console.log(`Found preferred model: ${foundModel.name}`);
+            return foundModel.name; // Return the full model name, e.g., "models/gemini-pro"
+          }
+        }
+
+        // If preferred models not found, try to find any model that supports generateContent
+        if (!foundModel) {
+          foundModel = data.models.find(model =>
+            model.supportedGenerationMethods &&
+            model.supportedGenerationMethods.includes("generateContent")
+          );
+          if (foundModel) {
+            console.warn(`Preferred models not found. Using fallback model: ${foundModel.name}`);
+            return foundModel.name;
+          }
+        }
+      }
+
+      throw new Error("No suitable generative AI model found that supports 'generateContent'.");
+
+    } catch (err) {
+      console.error("Error getting available model:", err);
+      setError(`Initialization error: ${err.message}`);
+      return null;
+    }
+  };
+
+  // Effect to discover the model on component mount
+  useEffect(() => {
+    const initializeModel = async () => {
+      const model = await getAvailableModel();
+      if (model) {
+        // Extract just the model ID (e.g., "gemini-pro" from "models/gemini-pro")
+        setAvailableModel(model.split('/')[1]);
+      } else {
+        // If no model found, set an error to prevent further API calls
+        setError("Could not find an available AI model for analysis. Please check your API key and project settings.");
+      }
+    };
+    initializeModel();
+  }, []); // Run once on mount
+
+  // Function to analyze mood using the discovered model
   const analyzeMood = async (e) => {
     e.preventDefault();
     if (!moodInput.trim()) {
-      setError('Please enter your mood or thoughts');
+      setError('Please enter your mood or thoughts.');
       return;
     }
-  
+    if (!availableModel) {
+      setError('AI model not initialized. Please wait or refresh.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     setAnalysis('');
-  
+
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("API Key is missing. Cannot proceed with analysis.");
+      }
+
+      const payload = {
+        contents: [
+          {
+            parts: [
+              {
+                text: `You are a supportive AI assistant specializing in mental wellness.
+                Analyze the user's mood based on their input and provide a three-part response:
+                1. Mood Interpretation (e.g., You seem anxious, happy, or overwhelmed)
+                2. Suggested Coping Mechanisms (e.g., deep breathing, journaling, meditation)
+                3. Encouraging Affirmation
+                
+                User Input: ${moodInput}`,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 200,
+        },
+      };
+
+      const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${availableModel}:generateContent?key=${apiKey}`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
         },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: `You are a supportive AI assistant specializing in mental wellness. 
-              Analyze the user's mood based on their input and provide a three-part response:
-              1. Mood Interpretation (e.g., You seem anxious, happy, or overwhelmed)
-              2. Suggested Coping Mechanisms (e.g., deep breathing, journaling, meditation)
-              3. Encouraging Affirmation`
-            },
-            { role: "user", content: moodInput }
-          ],
-          max_tokens: 200
-        })
+        body: JSON.stringify(payload),
       });
-  
+
       if (!response.ok) {
-        throw new Error('Failed to analyze mood');
+        const errorData = await response.json();
+        console.error("API Error Response Data:", errorData);
+        const errorMessage = errorData.error?.message || `Failed to analyze mood: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
-  
+
       const data = await response.json();
-      setAnalysis(data.choices[0].message.content);
+      console.log("Successful API Response Data:", data);
+
+      if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+        const firstCandidate = data.candidates[0];
+
+        if (firstCandidate.content && firstCandidate.content.parts && Array.isArray(firstCandidate.content.parts) && firstCandidate.content.parts.length > 0) {
+          const firstPart = firstCandidate.content.parts[0];
+
+          if (firstPart.text) {
+            const generatedText = firstPart.text;
+            setAnalysis(generatedText);
+          } else {
+            console.error("API Response Error: Missing 'text' in response part.", firstPart);
+            if (firstCandidate.finishReason === 'SAFETY' || (firstCandidate.safetyRatings && firstCandidate.safetyRatings.some(rating => rating.blocked))) {
+                throw new Error("Content was blocked due to safety concerns. Please try rephrasing your input.");
+            }
+            throw new Error("Unexpected response format from the API: Generated text is missing.");
+          }
+        } else {
+          console.error("API Response Error: Missing 'content' or 'parts' in response.", firstCandidate);
+          throw new Error("Unexpected response format from the API: Missing content structure.");
+        }
+      } else {
+        if (data.promptFeedback && data.promptFeedback.blockReason) {
+            throw new Error(`Your input was blocked due to: ${data.promptFeedback.blockReason}. Please adjust your input.`);
+        }
+        console.error("API Response Error: Missing 'candidates' in response.", data);
+        throw new Error("Unexpected response format from the API: No valid candidates found.");
+      }
     } catch (err) {
-      setError('Error analyzing mood. Please try again later.');
-      console.error(err);
+      console.error("Caught error during mood analysis:", err);
+      setError(`Error analyzing mood: ${err.message || 'Please try again later.'}`);
     } finally {
       setIsLoading(false);
     }
   };
-  
 
-  // Handle Sign In button click to navigate to the login page
   const handleSignIn = () => {
-    navigate('/login'); // Redirect to the login page
+    navigate('/');
   };
 
   return (
@@ -121,7 +245,7 @@ function HomePage() {
           </div>
           <div className="navbar-right">
             <button className="signin-button" onClick={handleSignIn}>Sign In</button>
-            <button className="cta-button">Get Started</button>
+            <button className="cta-button" ref={ctaRef}>Get Started</button>
           </div>
         </div>
       </nav>
@@ -149,11 +273,15 @@ function HomePage() {
                   onChange={(e) => setMoodInput(e.target.value)}
                   placeholder="Share your thoughts and feelings..."
                   className="mood-input"
+                  disabled={!availableModel || isLoading} // Disable if model not found or loading
                 />
                 {error && <p className="error-message">{error}</p>}
+                {!availableModel && !error && (
+                  <p className="loading-model-message">Discovering AI model...</p>
+                )}
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !availableModel} // Disable if loading or model not found
                   className="submit-button"
                 >
                   {isLoading ? (
@@ -176,7 +304,7 @@ function HomePage() {
           </div>
 
           {/* Features */}
-          <div className="features-grid" ref={featuresRef}>
+          <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon">
                 <BarChart3 className="feature-icon-svg" />
@@ -213,4 +341,5 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+export default App;
+

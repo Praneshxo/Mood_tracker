@@ -5,8 +5,8 @@ import Login from './Login.jsx';
 function App() {
   return (
     <Routes>
-      <Route path="/login\" element={<Login />} />
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<Login />} />
+      <Route path="/Home" element={<HomePage />} />
     </Routes>
   );
 }

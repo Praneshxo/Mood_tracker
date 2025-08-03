@@ -42,7 +42,21 @@
     transform: translateY(-50%);
     color: #9b9b9b;
   }
-  
+  .input-icon-left {
+  left: 12px;
+  pointer-events: none;
+}
+.input-icon-right {
+  right: 22px;
+   position: absolute;
+    
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9b9b9b;
+  pointer-events: none;
+  pointer-events: auto; 
+}
+
   .input-field {
     width: 100%;
     padding: 12px 16px 12px 40px;

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Calendar, Users } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import { Mail, Lock, User, Calendar, Users, Eye, EyeOff } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';  // Import useNavigate
+import { useNavigate } from 'react-router-dom';
 import './Login.css'; // Make sure you add the CSS file
 
 function Login() {
@@ -14,8 +13,9 @@ function Login() {
     age: undefined,
     gender: 'male'
   });
+  const [showPassword, setShowPassword] = useState(false);
 
-  const navigate = useNavigate(); // Initialize useNavigate hook
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -25,48 +25,29 @@ function Login() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    try {
-      if (mode === 'signup') {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (authError) throw authError;
-
-        if (authData.user) {
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-              user_id: authData.user.id,
-              username: formData.username,
-              age: formData.age,
-              gender: formData.gender
-            });
-
-          if (profileError) throw profileError;
-        }
-
-        toast.success('Sign up successful! Please check your email to verify your account.');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (error) throw error;
-
+    if (mode === 'signup') {
+      // Simulate signup - no backend interaction
+      console.log('Simulating signup with data:', {
+        email: formData.email,
+        username: formData.username,
+        age: formData.age,
+        gender: formData.gender
+      });
+      toast.success('Sign up successful! (Simulated - no account created).');
+      // Optionally, you could clear the form or switch to sign-in mode here
+      // setFormData({ email: '', password: '', username: '', age: undefined, gender: 'male' });
+      // setMode('signin');
+    } else { // mode === 'signin'
+      if (formData.email === 'admin@gmail.com' && formData.password === 'admin123') {
         toast.success('Successfully signed in!');
         console.log('Login successful, navigating to homepage');
-        
-        // Navigate to homepage after successful login
-        navigate('/');  // This should work, provided the route is set up correctly
+        navigate('/Home');
+      } else {
+        toast.error('Invalid email or password.');
       }
-    } catch (error) {
-      toast.error(error.message);
     }
   };
 
@@ -76,6 +57,14 @@ function Login() {
         <h2 className="form-header">
           {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
         </h2>
+
+        {mode === 'signin' && (
+          <div style={{ textAlign: 'center', marginBottom: '15px', fontSize: '0.9em', color: '#333' }}>
+            <p style={{ margin: '2px 0' }}>For testing purposes:</p>
+            <p style={{ margin: '2px 0' }}>Email: <strong>admin@gmail.com</strong></p>
+            <p style={{ margin: '2px 0' }}>Password: <strong>admin123</strong></p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="form">
           {mode === 'signup' && (
@@ -137,16 +126,34 @@ function Login() {
           </div>
 
           <div className="input-group">
-            <Lock className="input-icon" size={20} />
+            {/* Lock icon on the left */}
+            <Lock
+              className="input-icon input-icon-left"
+              size={20}
+            />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               name="password"
               placeholder="Password"
               value={formData.password}
               onChange={handleInputChange}
-              className="input-field"
+              className="input-field" // This field will need padding on both left and right
               required
             />
+            {/* Eye icon on the right for password visibility */}
+            {showPassword ? (
+              <EyeOff
+                className="input-icon-right"
+                size={20}
+                onClick={() => setShowPassword(!showPassword)}
+              />
+            ) : (
+              <Eye
+                className="input-icon-right"
+                size={20}
+                onClick={() => setShowPassword(!showPassword)}
+              />
+            )}
           </div>
 
           <button type="submit" className="submit-btn">
@@ -168,5 +175,42 @@ function Login() {
     </div>
   );
 }
+
+/*
+NOTE FOR Login.css:
+To correctly position the icons on both sides of the password input,
+you'll likely need to adjust your CSS. Here's a suggestion for your Login.css:
+
+.input-group {
+  position: relative; / Make sure this is set for absolute positioning of icons /
+}
+
+.input-field {
+  / ... your existing styles ... /
+  / Ensure it has padding to accommodate icons on both sides /
+  padding-left: 40px;  / Example: space for left icon, adjust as needed /
+  padding-right: 40px; / Example: space for right icon, adjust as needed /
+}
+
+/ Base styles for icons, if not already defined in .input-icon /
+.input-icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888; / Or your preferred icon color /
+}
+
+.input-icon-left {
+  left: 12px; / Adjust horizontal position for the left icon /
+}
+
+.input-icon-right {
+  right: 12px; / Adjust horizontal position for the right icon /
+}
+
+.clickable-icon {
+  cursor: pointer;
+}
+*/
 
 export default Login;
